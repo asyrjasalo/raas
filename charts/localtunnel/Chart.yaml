@@ -1,0 +1,10 @@
+apiVersion: v1
+appVersion: 1.0.0
+description: Expose yourself
+name: localtunnel
+version: 1.0.0
+keywords:
+  - localtunnel
+home: https://github.com/asyrjasalo/localtunnel-server
+sources:
+  - https://github.com/asyrjasalo/localtunnel-server

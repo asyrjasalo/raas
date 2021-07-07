@@ -1,0 +1,38 @@
+version: "3.3"
+
+# localtunnel-server:
+#
+# git clone https://github.com/asyrjasalo/localtunnel-server
+# cd localtunnel-server
+# yarn install
+# yarn start
+#
+# add to /etc/hosts:
+# 127.0.0.1   edge.raas.dev {{something}}.edge.raas.dev
+#
+#
+# localtunnel:
+#
+# git clone https://github.com/asyrjasalo/localtunnel
+# cd localtunnel
+# yarn install
+# yarn start
+
+services:
+  nginx:
+    image: registry.raas.dev/asyrjasalo/localtunnel-nginx:1.0.0
+    networks:
+      - localtunnel
+    ports:
+      - 80:80
+      - 443:443
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+
+networks:
+  localtunnel:
+    driver: overlay
+    attachable: true

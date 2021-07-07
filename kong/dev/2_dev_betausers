@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+### configuration ##############################################################
+
+: ${KONG_ADMIN_URL:="https://127.0.0.1:8443/fadmin"}
+: ${KONG_ADMIN_SECRET:="UOwOLA464wLHXIWh0p8vY1SfXsX3t25j"}
+: ${KONG_EARLYROBOT_SECRET:="earlyrobot"}
+
+### requests ###################################################################
+
+curl -i -k -X PUT \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/consumers/earlyrobot"
+
+curl -i -k -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/consumers/earlyrobot/acls" \
+  --data "group=betausers"
+
+curl -i -k -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/consumers/earlyrobot/key-auth" \
+  --data "key=$KONG_EARLYROBOT_SECRET"

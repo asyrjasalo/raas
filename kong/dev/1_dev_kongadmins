@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+### configuration ##############################################################
+
+: ${KONG_ADMIN_URL:="http://127.0.0.1:8001"}
+: ${INTERNAL_ADMIN_URL:="http://kong:8001"}
+: ${KONG_ADMIN_SECRET:="UOwOLA464wLHXIWh0p8vY1SfXsX3t25j"}
+
+### requests ###################################################################
+
+# services
+
+curl -i -X PUT \
+  --url "$KONG_ADMIN_URL/services/overkong" \
+  --data "url=$INTERNAL_ADMIN_URL"
+
+# routes
+
+curl -i -X POST \
+  --url "$KONG_ADMIN_URL/services/overkong/routes" \
+  --data "paths[]=/fadmin"
+
+# plugins
+
+curl -i -X POST \
+  --url "$KONG_ADMIN_URL/services/overkong/plugins" \
+  --data "name=key-auth" \
+  --data "config.hide_credentials=true" \
+  --data "config.key_names=apikey"
+
+curl -i -X POST \
+  --url "$KONG_ADMIN_URL/services/overkong/plugins" \
+  --data "name=acl" \
+  --data "config.whitelist=kongadmins"
+
+# root
+
+curl -i -X PUT \
+  --url "$KONG_ADMIN_URL/consumers/root"
+
+curl -i -X POST \
+  --url "$KONG_ADMIN_URL/consumers/root/acls" \
+  --data "group=kongadmins"
+
+curl -i -X POST \
+  --url "$KONG_ADMIN_URL/consumers/root/key-auth" \
+  --data "key=$KONG_ADMIN_SECRET"

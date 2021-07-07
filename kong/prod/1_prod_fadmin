@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+### configuration ##############################################################
+
+: ${KONG_ADMIN_URL:="https://iddqd.raas.dev"}
+: ${IDDQD_USERNAME:="admin"}
+: ${IDDQD_PASSWORD:=""}
+: ${INTERNAL_ADMIN_URL:="http://kong-kong-admin.kong.svc.cluster.local:8444"}
+
+### requests ###################################################################
+
+# services
+
+curl -i -X PUT \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/services/fadmin" \
+  --data "url=$INTERNAL_ADMIN_URL"
+
+# routes
+
+curl -i -X POST \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/services/fadmin/routes" \
+  --data "hosts[]=fops.raas.dev&paths[]=/fadmin"
+
+# plugins
+
+curl -i -X POST \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/services/fadmin/plugins" \
+  --data "name=key-auth" \
+  --data "config.hide_credentials=true"
+
+curl -i -X POST \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/services/fadmin/plugins" \
+  --data "name=acl" \
+  --data "config.whitelist=fadmins"
+
+# root
+
+curl -i -X PUT \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/consumers/root"
+
+curl -i -X POST \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/consumers/root/acls" \
+  --data "group=fadmins"
+
+curl -i -X POST \
+  --user "$IDDQD_USERNAME:$IDDQD_PASSWORD" \
+  --url "$KONG_ADMIN_URL/consumers/root/key-auth"

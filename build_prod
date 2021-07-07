@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+charts_path="$this_path/charts"
+
+### functions ##################################################################
+
+ensure_prerequisites_or_exit() {
+    if ! which helm >/dev/null ; then
+        if ! which brew >/dev/null ; then
+            echo "You are not using Homebrew/Linuxbrew."
+            echo
+            echo "You can also install kubernetes-helm for your OS from"
+            echo "  https://github.com/kubernetes/helm/releases"
+            echo ""
+            echo "Make sure `kubernetes-helm` is then available in your PATH."
+            exit 127
+        fi
+        brew install kubernetes-helm
+    fi
+}
+
+init_helm() {
+    kubectl create serviceaccount tiller --namespace kube-system || true
+    kubectl create clusterrolebinding tiller \
+      --clusterrole cluster-admin \
+      --serviceaccount=kube-system:tiller || true
+    helm init --upgrade --skip-refresh --wait --service-account tiller
+    helm repo update
+}
+
+deploy_cert_manager() {
+    kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/00-crds.yaml
+    kubectl create namespace cert-manager || true
+    kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
+    helm repo add jetstack https://charts.jetstack.io
+    helm upgrade --install cert-manager jetstack/cert-manager \
+      --version v0.7.0 \
+      --values "$charts_path/cert-manager.yaml" \
+      --namespace cert-manager
+}
+
+deploy_docker_registry() {
+    helm upgrade --install registry stable/docker-registry \
+      --values "$charts_path/docker-registry.yaml" \
+      --namespace registry
+}
+
+deploy_kong() {
+    helm upgrade --install kong stable/kong \
+      --values "$charts_path/kong.yaml" \
+      --namespace kong
+}
+
+deploy_jared() {
+    kubectl create namespace jared || true
+
+    kubectl create secret generic regcred \
+        --from-file=.dockerconfigjson=$HOME/.docker/config.json \
+        --type=kubernetes.io/dockerconfigjson \
+        --namespace jared || true
+
+    helm upgrade --install jared "$charts_path/jared" \
+      --values "$charts_path/jared.yaml" \
+      --namespace jared
+}
+
+deploy_localtunnel() {
+    helm update --install localtunnel "$charts_path/localtunnel"
+      --values "$charts_path/localtunnel.yaml" \
+      --namespace localtunnel
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+init_helm
+
+#deploy_cert_manager
+
+#deploy_docker_registry
+deploy_jared
+
+#deploy_kong

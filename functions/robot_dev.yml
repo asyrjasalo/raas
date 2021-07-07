@@ -1,0 +1,12 @@
+# this file is used for development
+
+provider:
+  name: faas
+
+functions:
+  robot:
+    image: rfn:latest
+    handler: ./functions/robotwrapper
+    lang: dockerfile
+    environment:
+      write_debug: "true"

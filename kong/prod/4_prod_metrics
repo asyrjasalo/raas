@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+### configuration ##############################################################
+
+: ${KONG_ADMIN_URL:="https://fops.raas.dev/fadmin"}
+: ${KONG_ADMIN_SECRET:=""}
+: ${PROMETHEUS_URL:="http://prometheus.openfaas.svc.cluster.local:9090"}
+
+### requests ###################################################################
+
+# services
+
+curl -i -X PUT \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/metrics" \
+  --data "url=$PROMETHEUS_URL"
+
+# routes
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/metrics/routes" \
+  --data "hosts[]=metrics.raas.dev" \
+  --data "protocols[]=http"
+
+# plugins
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/metrics/plugins" \
+  --data "name=basic-auth" \
+  --data "config.hide_credentials=true"
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/metrics/plugins" \
+  --data "name=acl" \
+  --data "config.whitelist=fops"

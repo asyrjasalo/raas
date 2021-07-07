@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Via faas CLI
+# cat functions/robotwrapper/rest.robot | faas invoke robot
+
+# Hack OpenFaaS directly
+#curl -i -X POST \
+#  --data-binary @functions/robotwrapper/rest.robot \
+#  http://127.0.0.1:8080/function/robot
+
+# Via Kong (HTTPS)
+curl -i -k -X POST \
+  --header "apikey: earlyrobot" \
+  --data-binary @functions/robotwrapper/rest.robot \
+  https://127.0.0.1:8443/function/robot

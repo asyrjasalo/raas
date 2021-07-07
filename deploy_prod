@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+functions_path="$this_path/functions"
+
+### helpers ####################################################################
+
+ensure_prerequisites_or_exit() {
+    if ! which faas >/dev/null ; then
+        if ! which brew >/dev/null ; then
+            echo "You are not using Homebrew/Linuxbrew."
+            echo
+            echo "You can also install faas CLI for your OS according to"
+            echo "  https://docs.openfaas.com/cli/install/"
+            echo ""
+            echo "Make sure `faas` is then available in your PATH."
+            exit 127
+        fi
+        brew install faas-cli
+    fi
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+
+faas login --gateway https://gateway.raas.dev -p hyJq2@9c6v2P
+faas build -f "$functions_path/robot.yml"
+faas push -f "$functions_path/robot.yml"
+faas deploy -f "$functions_path/robot.yml"

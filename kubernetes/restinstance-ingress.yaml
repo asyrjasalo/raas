@@ -1,0 +1,34 @@
+# CREATE:
+#
+# git clone https://github.com/openfaas-incubator/ingress-operator
+#
+# cd ingress-operator
+# kubectl apply -f ./artifacts/operator-crd.yaml
+# kubectl apply -f ./artifacts/operator-rbac.yaml
+# kubectl apply -f ./artifacts/operator-amd64.yaml
+# kubectl get deploy/ingress-operator --namespace openfaas -o wide
+#
+# kubectl apply -f restinstance-ingress.yaml
+# kubectl get ingress --namespace openfaas
+# kubectl get cert --namespace openfaas
+#
+#
+# DELETE e.g.:
+# kubectl delete certificate --namespace openfaas restinstance-tls-secret
+# kubectl delete secret --namespace openfaas restinstance-tls-secret
+# kubectl delete order --namespace openfaas restinstance-tls-secret-3414021480
+# kubectl delete ingress --namespace openfaas restinstance-tls
+apiVersion: openfaas.com/v1alpha2
+kind: FunctionIngress
+metadata:
+  name: restinstance-tls
+  namespace: openfaas
+spec:
+  domain: restinstance.raas.dev
+  function: robot
+  ingressType: nginx
+  tls:
+    enabled: true
+    issuerRef:
+      name: letsencrypt-prod
+      kind: ClusterIssuer

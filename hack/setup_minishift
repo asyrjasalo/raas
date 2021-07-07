@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bin_path="$this_path/bin"
+
+### configuration ##############################################################
+
+: ${YOUR_USERNAME:="developer"}
+: ${YOUR_PASSWORD:="developer"}
+
+: ${HOST_OS:="$OSTYPE"}
+: ${OPENSHIFT_VERSION:="v3.11.0"}
+
+: ${MINISHIFT_VERSION:="1.33.0"}
+: ${MINISHIFT_CPUS:=$(($(getconf _NPROCESSORS_ONLN) / 2))} # half of the cores
+: ${MINISHIFT_MEM:="8GB"}
+: ${MINISHIFT_DISKSIZE:="30GB"}
+
+### functions ##################################################################
+
+ensure_prerequisites_or_exit() {
+    if [[ $HOST_OS == darwin* ]] ; then
+        HOST_OS="darwin"
+    elif [[ $HOST_OS == linux-gnu ]] ; then
+        HOST_OS="linux"
+    else
+        exit_with_error "Your system '$HOST_OS' is not supported."
+    fi
+
+    if ! which vboxmanage >/dev/null ; then
+        echo "Please install VirtualBox."
+        echo "  On OS X, you can use Homebrew cask in terminal by running:"
+        echo ""
+        echo "  brew cask install virtualbox"
+        echo ""
+        echo "  For other systems, see:"
+        echo "  https://www.virtualbox.org/wiki/Downloads"
+        exit 127
+    fi
+
+    if ! which oc >/dev/null ; then
+        if ! which brew >/dev/null ; then
+            echo "You are not using Homebrew/Linuxbrew."
+            echo
+            echo "You can also download openshift-cli binary for your OS from"
+            echo "  https://github.com/openshift/origin/releases"
+            echo ""
+            echo "Make sure `oc` is then available in your PATH."
+            exit 127
+        fi
+        brew install openshift-cli
+    fi
+}
+
+exit_with_error() {
+    local message="$1"
+
+    echo "Error: $message"
+    exit 1
+}
+
+setup_minishift() {
+    if [ -x "$bin_path/minishift" ] ; then
+        export PATH="$bin_path:$PATH"
+    fi
+
+    if ! which minishift >/dev/null ; then
+        local minishift_rel_name="minishift-$MINISHIFT_VERSION-$HOST_OS-amd64.tgz"
+        local minishift_rel_url="http://github.com/minishift/minishift/releases/download/v$MINISHIFT_VERSION/$minishift_rel_name"
+
+        echo "Downloading minishift $MINISHIFT_VERSION for $HOST_OS..."
+        curl -L -s "$minishift_rel_url" -o "$bin_path/$minishift_rel_name" || \
+        wget -q "$minishift_rel_url" -O "$bin_path/$minishift_rel_name"  &&
+
+        mkdir -p "$bin_path/latest"
+        tar xzf "$bin_path/$minishift_rel_name" -C "$bin_path/latest" --strip 1
+        cp -f "$bin_path/latest/minishift" "$bin_path/minishift"
+        chmod +x "$bin_path/minishift"
+        rm -rf "$bin_path/latest"
+        rm -f "$bin_path/$minishift_rel_name"
+        echo "Done. You can put this in your .bashrc or .zshrc:"
+        echo ""
+        echo "export PATH=\$PATH:$bin_path"
+        echo ""
+        export PATH="$bin_path:$PATH"
+    fi
+}
+
+login_as_admin() {
+    echo "Logging in as admin."
+    oc login $(minishift console --url) \
+        --username "admin" --password "admin" \
+        --insecure-skip-tls-verify=true
+}
+
+login_as_user() {
+    echo "Logging in as $YOUR_USERNAME."
+    oc login $(minishift console --url) \
+        --username "$YOUR_USERNAME" --password "$YOUR_PASSWORD" \
+        --insecure-skip-tls-verify=true
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+setup_minishift
+
+if ! minishift status | grep "minishift: Running" ; then
+    trap "minishift delete --force & &>/dev/null" SIGINT SIGTERM ERR
+    minishift start \
+      --vm-driver=virtualbox \
+      --cpus="$MINISHIFT_CPUS" --memory="$MINISHIFT_MEM" \
+      --disk-size="$MINISHIFT_DISKSIZE" \
+      --openshift-version="$OPENSHIFT_VERSION"
+    trap - SIGINT SIGTERM ERR
+    minishift addons apply admin-user
+fi
+
+minishift dashboard
+login_as_admin

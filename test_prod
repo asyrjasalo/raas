@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+curl -i -X POST \
+  --data-binary @functions/robotwrapper/rest.robot \
+  --url https://gateway.raas.dev/function/robot

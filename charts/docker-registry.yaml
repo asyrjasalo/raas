@@ -1,0 +1,110 @@
+# Default values for docker-registry.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+replicaCount: 1
+
+updateStrategy:
+  # type: RollingUpdate
+  # rollingUpdate:
+  #   maxSurge: 1
+  #   maxUnavailable: 0
+
+podAnnotations: {}
+
+image:
+  repository: registry
+  tag: 2.7.1
+  pullPolicy: IfNotPresent
+#  imagePullSecrets:
+#    - name: regcred
+service:
+  name: registry
+  type: ClusterIP
+  # clusterIP:
+  port: 5000
+  # nodePort:
+  annotations: {}
+  # foo.io/bar: "true"
+ingress:
+  enabled: true
+  path: /
+  # Used to create an Ingress record.
+  hosts:
+    - registry.raas.dev
+  annotations:
+    certmanager.k8s.io/acme-challenge-type: dns01
+    certmanager.k8s.io/acme-dns01-provider: clouddns
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 0
+  tls:
+    # Secrets must be manually created in the namespace.
+    - hosts:
+       - registry.raas.dev
+      secretName: registry-tls
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+persistence:
+  accessMode: 'ReadWriteOnce'
+  enabled: false
+  size: 10Gi
+  # storageClass: '-'
+
+# set the type of filesystem to use: filesystem, s3
+storage: filesystem
+
+# Set this to name of secret for tls certs
+# tlsSecretName: registry.docker.example.com
+secrets:
+  haSharedSecret: ""
+  htpasswd: "faas:$2y$05$Zk11.k7Q/9j8Ki.v9NX5s.7uKreUGXVllwRGN5g1nN5ps1Esn8gma
+
+"
+# Secrets for S3 access and secret keys
+#   s3:
+#     accessKey: ""
+#     secretKey: ""
+# Secrets for Swift username and password
+#   swift:
+#     username: ""
+#     password: ""
+
+# Options for s3 storage type:
+# s3:
+#  region: us-east-1
+#  bucket: my-bucket
+#  encrypt: false
+#  secure: true
+
+# Options for swift storage type:
+# swift:
+#  authurl: http://swift.example.com/
+#  container: my-container
+
+configData:
+  version: 0.1
+  log:
+    fields:
+      service: registry
+  storage:
+    cache:
+      blobdescriptor: inmemory
+  http:
+    addr: :5000
+    headers:
+      X-Content-Type-Options: [nosniff]
+  health:
+    storagedriver:
+      enabled: true
+      interval: 10s
+      threshold: 3

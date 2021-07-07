@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bin_path="$this_path/bin"
+
+export GOPATH="$HOME/go"
+openfaas_dep_path="$GOPATH/src/github.com/openfaas-incubator"
+
+### configuration ##############################################################
+
+: ${HOST_OS:="$OSTYPE"}
+: ${OFC_BOOTSTRAP_VERSION:="0.6.4"}
+
+### helpers ####################################################################
+
+ensure_prerequisites_or_exit() {
+    if ! which openssl >/dev/null ; then
+        echo "Error: Binary 'openssl' must be found in \$PATH to continue."
+        exit 1
+    fi
+
+    if ! which kubectl >/dev/null ; then
+        echo "Please install kubectl."
+        exit 127
+    fi
+
+    if ! which helm >/dev/null ; then
+        echo "Please install helm."
+        exit 127
+    fi
+
+    if ! which gcloud >/dev/null ; then
+        echo "Please install gcloud."
+        exit 127
+    fi
+
+    if [ ! -d "$openfaas_dep_path/ofc-bootstrap" ] ; then
+        mkdir -p "$openfaas_dep_path"
+        pushd "$openfaas_dep_path" >/dev/null
+        git clone https://github.com/openfaas-incubator/ofc-bootstrap
+        popd >/dev/null
+    fi
+}
+
+setup_ofc_bootstrap() {
+    if [ -x "$bin_path/ofc_bootstrap" ] ; then
+        export PATH="$bin_path:$PATH"
+    fi
+
+    if ! which ofc-bootstrap >/dev/null; then
+        if [[ $HOST_OS == darwin* ]] ; then
+            local release_name_postfix="-darwin"
+        elif [[ $HOST_OS == linux-gnu ]] ; then
+            local release_name_postfix=""
+        else
+            exit_with_error "Your system '$HOST_OS' is not supported."
+        fi
+        local ofc_bootstrap_rel_url="https://github.com/openfaas-incubator/ofc-bootstrap/releases/download/$OFC_BOOTSTRAP_VERSION/ofc-bootstrap$release_name_postfix"
+        echo "Downloading ofc-bootstrap $OFC_BOOTSTRAP_VERSION for $HOST_OS..."
+        curl -L -s "$ofc_bootstrap_rel_url" -o "$bin_path/ofc-bootstrap" || \
+        wget -q "$ofc_bootstrap_rel_url" -O "$bin_path/ofc-bootstrap"
+        chmod +x "$bin_path/ofc-bootstrap"
+        echo "Done. You can put this in your .bashrc or .zshrc:"
+        echo ""
+        echo "export PATH=\$PATH:$bin_path"
+        echo ""
+        export PATH="$bin_path:$PATH"
+    fi
+}
+
+update_git_submodules() {
+    which git >/dev/null && git submodule update --init --recursive
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+setup_ofc_bootstrap
+
+if [[ "$1" == "down" ]] || [[ "$1" == "destroy" ]] ; then
+    pushd "$openfaas_dep_path/ofc-bootstrap" >/dev/null
+    ./scripts/reset.sh
+    popd >/dev/null
+    unset KUBECONFIG
+    exit 0
+fi
+
+echo "Note: On Docker Desktop (OS X, Windows), Docker registry credentials"
+echo "shall NOT be stored encrypted for ofc-bootstrap to pull Docker images."
+echo ""
+
+gcloud beta container clusters get-credentials raas --region europe-north1 --project raas-236116
+
+kubectl create clusterrolebinding "cluster-admin-$(whoami)" \
+    --clusterrole=cluster-admin \
+    --user="$(gcloud config get-value core/account)" || true
+
+pushd "$openfaas_dep_path/ofc-bootstrap" >/dev/null
+ofc-bootstrap -yaml="$this_path/ofc_gke.yaml"
+popd >/dev/null

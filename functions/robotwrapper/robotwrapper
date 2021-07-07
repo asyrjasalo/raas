@@ -1,0 +1,15 @@
+#!/bin/bash
+
+inputsuite="$(mktemp -t).robot"
+outputdir="$(mktemp -d)"
+
+content=""
+cat - > "$content"
+
+if [ -z "$content" ] ; then
+    inputsuite="rest.robot"
+else
+    cat "$content" > "$inputsuite"
+fi
+
+robot -C ansi --outputdir "$outputdir" "$inputsuite"

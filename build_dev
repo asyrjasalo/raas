@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dev_scripts_path="$this_path/kong/dev"
+
+### create APIs ################################################################
+
+"$dev_scripts_path/1_dev_kongadmins"
+"$dev_scripts_path/2_dev_betausers"
+"$dev_scripts_path/3_dev_gateway"

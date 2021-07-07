@@ -1,0 +1,249 @@
+orchestration: kubernetes
+secrets:
+  ### Generated secrets (do not edit)
+  - name: s3-secret-key
+    literals:
+      - name: s3-secret-key
+    filters:
+      - "default"
+    namespace: "openfaas-fn"
+  - name: s3-access-key
+    literals:
+      - name: s3-access-key
+    filters:
+      - "default"
+    namespace: "openfaas-fn"
+  - name: basic-auth
+    literals:
+      - name: basic-auth-user
+        value: admin
+      - name: basic-auth-password
+        value: hyJq2@9c6v2P
+    filters:
+      - "default"
+    namespace: "openfaas"
+  - name: "payload-secret"
+    literals:
+      - name: payload-secret
+        value: ""
+    filters:
+      - "default"
+    namespace: "openfaas"
+  - name: "jwt-private-key"
+    files:
+      - name: "key"
+        value_from: "./tmp/key"
+        value_command: "openssl ecparam -genkey -name prime256v1 -noout -out ./tmp/key"
+    filters:
+      - "auth"
+    namespace: "openfaas"
+  - name: "jwt-public-key"
+    files:
+      - name: "key.pub"
+        value_from: "./tmp/key.pub"
+        value_command: "openssl ec -in ./tmp/key -pubout -out ./tmp/key.pub"
+    filters:
+      - "auth"
+    namespace: "openfaas"
+
+  ### User-input
+  ### In this section, you must populate all your secrets or secret file-locations
+  ### and your desired configuration.
+  ### For more information see: https://github.com/openfaas/openfaas-cloud/tree/master/docs
+
+  # Value you entered into the GitHub App UI, or generate random password if left blank
+  - name: "github-webhook-secret"
+    literals:
+      - name: "github-webhook-secret"
+        value: "3d05ad19cdc5a12ae9f95a1330746a76d7443611"
+    filters:
+      - "scm_github"
+    namespace: "openfaas-fn"
+  # Download from GitHub App on GitHub UI
+  - name: "private-key"
+    files:
+      - name: "private-key"
+        value_from: "~/Downloads/private-key.pem"
+    filters:
+      - "scm_github"
+    namespace: "openfaas-fn"
+  # Populate your OAuth client_secret
+  - name: "of-client-secret"
+    literals:
+      - name: of-client-secret
+        value: "1b97e42085dc795646787d744fe6fdb8b81ef7b4"
+    filters:
+      - "auth"
+    namespace: "openfaas"
+
+  # Enter your GitLab Webhook secret and API token
+  - name: "gitlab-webhook-secret"
+    literals:
+      - name: "gitlab-webhook-secret"
+        value: ""
+    filters:
+      - "scm_gitlab"
+    namespace: "openfaas-fn"
+  - name: "gitlab-api-token"
+    literals:
+      - name: "gitlab-api-token"
+        value: "token"
+    filters:
+      - "scm_gitlab"
+    namespace: "openfaas-fn"
+
+  # DNS Service Account secret for DNS01 (wildcard) challenge
+
+  ## Use DigitalOcean
+  - name: "digitalocean-dns"
+    files:
+      - name: "access-token"
+        value_from: "~/Downloads/do-access-token"
+    filters:
+      - "do_dns01"
+    namespace: "cert-manager"
+
+  ## Use Google Cloud DNS
+  - name: "clouddns-service-account"
+    files:
+      - name: "service-account.json"
+        value_from: "~/Downloads/service-account.json"
+    filters:
+      - "gcp_dns01"
+    namespace: "cert-manager"
+
+  ## Use Route 53
+  - name: "route53-credentials-secret"
+    files:
+      - name: "secret-access-key"
+        value_from: "~/Downloads/route53-secret-access-key"
+    filters:
+      - "route53_dns01"
+    namespace: "cert-manager"
+
+  # Used by Buildkit to push images to your registry
+  - name: "registry-secret"
+    files:
+      - name: "config.json"
+        value_from: "~/.docker/config.json"
+    filters:
+      - "default"
+    namespace: "openfaas"
+  # Used to pull functions / images to nodes by Kubernetes
+  - name: "registry-pull-secret"
+    files:
+      - name: ".dockerconfigjson"
+        value_from: "~/.docker/config.json"
+    namespace: "openfaas-fn"
+    filters:
+      - "default"
+    type: "kubernetes.io/dockerconfigjson"
+
+### Docker registry
+#### This can be any cluster accessible by your cluster. To populate the file
+#### run `docker login` with "store in keychain" turned off in Docker Desktop.
+#### This can also be your private registry
+#### Format: registry/username/ - i.e. replace ofctest with your login
+
+registry: docker.io/asyrjasalo/
+
+### Your root DNS domain name, this can be a sub-domain i.e. staging.o6s.io / prod.o6s.io
+root_domain: "raas.dev"
+
+## Ingress into OpenFaaS Cloud
+
+### Keep active if using a cluster with a LoadBalancer available.
+ingress: loadbalancer
+
+### Uncomment if using on-premises or a host/cloud without a loadbalancer
+# ingress: host
+
+## Define the custom templates available for your users
+### If needed edit the git-tar Deployment after running the tool
+deployment:
+  custom_templates:
+    - "https://github.com/openfaas-incubator/node8-express-template.git"
+    - "https://github.com/openfaas-incubator/golang-http-template.git"
+    - "https://github.com/openfaas-incubator/node10-express-template.git"
+    - "https://github.com/openfaas-incubator/python-flask-template.git"
+    - "https://github.com/openfaas-incubator/ruby-http"
+
+## Source Control Management
+### Pick either github or gitlab
+scm: github
+# scm: gitlab
+
+## Populate from GitHub App
+github:
+  app_id: "34926"
+
+## GitLab
+### Public URL for your GitLab instance with a trailing slash
+gitlab:
+  gitlab_instance: "https://gitlab.o6s.io/"
+
+## Populate from OAuth App
+oauth:
+  client_id: dcff7cc195da291e5162
+
+  ## For GitLab put your OAuth provider base URL
+  # oauth_provider_base_url: "https://gitlab.o6s.io"
+
+  ## For GitHub leave blank
+  oauth_provider_base_url: ""
+
+## Slack
+### You can set your own url to get an audit trail in your Slack workspace
+### You can edit this after deployment if needed in the audit function
+slack:
+  url: http://gateway.openfaas:8080/function/echo
+
+### Users allowed to access your OpenFaaS Cloud
+#### ACL for your users, it must be a raw text file or GitHub RAW URL
+#### At time of writing this _must_ be a public repo URL
+customers_url: "https://raw.githubusercontent.com/asyrjasalo/openfaas-cloud/master/CUSTOMERS"
+
+##  S3 configuration
+### Build logs from buildkit are stored in S3
+### Defaults to in-cluster deployment of Minio. AWS S3 is also possible
+s3:
+  s3_url: cloud-minio.openfaas.svc.cluster.local:9000
+  s3_region: us-east-1
+  s3_tls: false
+  s3_bucket: pipeline
+
+## Enable auth:
+### When enabled users must log in with a valid GitHub account and be present in the
+### customers file to view any dashboard
+enable_oauth: true
+
+## TLS
+tls: true
+tls_config:
+  issuer_type: "prod"
+
+  #issuer_type: "staging"
+  email: "anssi.syrjasalo@gmail.com"
+
+  ## Select DNS web service between Amazon Route 53 (route53) and Google Cloud DNS (clouddns)
+  # by uncommenting the required option
+
+  ### DigitalOcean
+  #dns_service: digitalocean
+  ### Google Cloud DNS
+  dns_service: clouddns
+  project_id: "raas-236116"
+  ### AWS Route53
+  # dns_service: route53
+  # region: us-east-1
+  # access_key_id: ASYAKIUJE8AYRQQ7DU3M
+
+# Dockerfile language support
+enable_dockerfile_lang: true
+
+# Set to true to enable scaling to zero
+scale_to_zero: true
+openfaas_cloud_version: 0.9.4
+
+# Enable network policies
+network_policies: true

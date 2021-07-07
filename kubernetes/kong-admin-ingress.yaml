@@ -1,0 +1,26 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: kong-admin-ingress
+  annotations:
+    certmanager.k8s.io/acme-challenge-type: dns01
+    certmanager.k8s.io/acme-dns01-provider: clouddns
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/tls-acme: "true"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: kong-admin-ingress-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required (admin)"
+spec:
+  rules:
+  - host: iddqd.raas.dev
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: kong-kong-admin
+          servicePort: 8444
+  tls:
+  - hosts:
+    - iddqd.raas.dev
+    secretName: iddqd-tls

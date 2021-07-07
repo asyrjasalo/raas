@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+bin_path="$this_path/bin"
+stack_path="$this_path/swarm"
+
+### configuration ##############################################################
+
+: ${HOST_OS:="$OSTYPE"}
+
+### functions ##################################################################
+
+ensure_prerequisites_or_exit() {
+    if [[ $HOST_OS == darwin* ]] ; then
+        HOST_OS="darwin"
+    elif [[ $HOST_OS == linux-gnu ]] ; then
+        HOST_OS="linux"
+    else
+        exit_with_error "Your system '$HOST_OS' is not supported yet."
+    fi
+
+    if ! which docker >/dev/null ; then
+        echo "Please install Docker."
+        echo "  On OS X, you can use Homebrew cask in terminal by running:"
+        echo ""
+        echo "  brew cask install docker"
+        echo ""
+        echo "  For other systems, see:"
+        echo "  https://www.docker.com/community-edition#/download"
+        exit 127
+    fi
+}
+
+exit_with_error() {
+    local message="$1"
+
+    echo "Error: $message"
+    exit 1
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+
+if [[ "$1" == "down" ]] || [[ "$1" == "destroy" ]] ; then
+    #docker service ls -q | xargs docker service rm
+    docker service rm robot || true
+    docker stack rm raas || true
+    docker secret rm basic-auth-user basic-auth-password || true
+    docker swarm leave --force || true
+    exit 0
+fi
+
+docker swarm init || true
+
+echo "admin" | docker secret create basic-auth-user - || true
+echo "earlyadmin" | docker secret create basic-auth-password - || true
+
+docker stack deploy raas \
+  --compose-file "$stack_path/docker-compose.yml"
+
+docker stack deploy raas \
+  --compose-file "$stack_path/kong/docker-compose.yml"
+
+docker stack deploy raas \
+  --compose-file "$stack_path/node-red/docker-compose.yml"
+
+docker stack deploy raas \
+  --compose-file "$stack_path/localtunnel/docker-compose.yml"
+
+echo -e "\nOpenFaas running at http://127.0.0.1:8080. Run ./build_dev next."

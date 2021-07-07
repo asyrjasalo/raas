@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+set -e
+
+### constants ##################################################################
+
+this_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bin_path="$this_path/bin"
+
+export GOPATH="$HOME/go"
+openfaas_dep_path="$GOPATH/src/github.com/openfaas-incubator"
+
+### configuration ##############################################################
+
+: ${HOST_OS:="$OSTYPE"}
+: ${OFC_BOOTSTRAP_VERSION:="0.6.4"}
+: ${KIND_VERSION:="0.4.0"}
+
+### functions ##################################################################
+
+ensure_prerequisites_or_exit() {
+    if [[ $HOST_OS == darwin* ]] ; then
+        HOST_OS="darwin"
+    elif [[ $HOST_OS == linux-gnu ]] ; then
+        HOST_OS="linux"
+    else
+        exit_with_error "Your system '$HOST_OS' is not supported yet."
+    fi
+
+    if ! which docker >/dev/null ; then
+        echo "Please install Docker."
+        echo "  On OS X, you can use Homebrew cask in terminal by running:"
+        echo ""
+        echo "  brew cask install docker"
+        echo ""
+        echo "  For other systems, see:"
+        echo "  https://www.docker.com/community-edition#/download"
+        exit 127
+    fi
+
+    if ! which kubectl >/dev/null ; then
+        echo "Please install kubectl."
+        exit 127
+    fi
+
+    if ! which go >/dev/null ; then
+        echo "Please install Go."
+        exit 127
+    fi
+
+    export PATH="$(go env GOPATH)/bin:$PATH"
+    GO111MODULE="on" go get "sigs.k8s.io/kind@v$KIND_VERSION"
+}
+
+setup_ofc_bootstrap() {
+    if [ -x "$bin_path/ofc_bootstrap" ] ; then
+        export PATH="$bin_path:$PATH"
+    fi
+
+    if ! which ofc-bootstrap >/dev/null; then
+        if [[ $HOST_OS == darwin* ]] ; then
+            local release_name_postfix="-darwin"
+        elif [[ $HOST_OS == linux-gnu ]] ; then
+            local release_name_postfix=""
+        else
+            exit_with_error "Your system '$HOST_OS' is not supported."
+        fi
+        local ofc_bootstrap_rel_url="https://github.com/openfaas-incubator/ofc-bootstrap/releases/download/$OFC_BOOTSTRAP_VERSION/ofc-bootstrap$release_name_postfix"
+        echo "Downloading ofc-bootstrap $OFC_BOOTSTRAP_VERSION for $HOST_OS..."
+        curl -L -s "$ofc_bootstrap_rel_url" -o "$bin_path/ofc-bootstrap" || \
+        wget -q "$ofc_bootstrap_rel_url" -O "$bin_path/ofc-bootstrap"
+        chmod +x "$bin_path/ofc-bootstrap"
+        echo "Done. You can put this in your .bashrc or .zshrc:"
+        echo ""
+        echo "export PATH=\$PATH:$bin_path"
+        echo ""
+        export PATH="$bin_path:$PATH"
+    fi
+}
+
+exit_with_error() {
+    local message="$1"
+
+    echo "Error: $message"
+    exit 1
+}
+
+### main #######################################################################
+
+ensure_prerequisites_or_exit
+setup_ofc_bootstrap
+
+if [[ "$1" == "down" ]] || [[ "$1" == "destroy" ]] ; then
+    kind delete cluster --name localraas || true
+    rm -rf "$openfaas_dep_path/ofc-bootstrap/tmp"
+    unset KUBECONFIG
+    exit 0
+fi
+
+echo "Note: On Docker Desktop (OS X, Windows), Docker registry credentials"
+echo "shall NOT be stored encrypted for ofc-bootstrap to pull Docker images."
+echo ""
+
+kind create cluster --name localraas --wait 60s || true
+
+echo -e "\nLocal Kubernetes cluster is running. To manage it via kubectl, run:"
+echo -e '\nexport KUBECONFIG="$(kind get kubeconfig-path --name=localraas)"'
+
+export KUBECONFIG="$(kind get kubeconfig-path --name=localraas)"
+
+pushd "$openfaas_dep_path/ofc-bootstrap" >/dev/null
+ofc-bootstrap -yaml="$this_path/ofc_kind.yaml"
+popd >/dev/null
+
+kubectl port-forward svc/gateway -n openfaas 8080:8080

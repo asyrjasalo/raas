@@ -1,0 +1,8 @@
+# raas
+bin/
+tmp/
+
+# OpenFaaS
+template/
+build/
+

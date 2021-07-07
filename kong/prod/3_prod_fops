@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+
+### configuration ##############################################################
+
+: ${KONG_ADMIN_URL:="https://fops.raas.dev/fadmin"}
+: ${KONG_ADMIN_SECRET:=""}
+: ${GATEWAY_URL:="http://gateway.openfaas.svc.cluster.local:8080"}
+
+### requests ###################################################################
+
+# services
+
+curl -i -X PUT \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/fops" \
+  --data "url=$GATEWAY_URL"
+
+# routes
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/fops/routes" \
+  --data "hosts[]=fops.raas.dev&paths[]=/&paths[]=/ui&paths[]=/system" \
+  --data "protocols[]=http" \
+  --data "strip_path=false"
+
+# plugins
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/fops/plugins" \
+  --data "name=basic-auth" \
+  --data "config.hide_credentials=true"
+
+curl -i -X POST \
+  --header "apikey: $KONG_ADMIN_SECRET" \
+  --url "$KONG_ADMIN_URL/services/fops/plugins" \
+  --data "name=acl" \
+  --data "config.whitelist=fops"
